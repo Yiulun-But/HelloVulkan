@@ -1,0 +1,14 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "CMakeFiles\\demo.dir\\src\\demo\\main.cpp.obj",
+            "outputs": [
+                "C:\\VulkanProjects\\Demo\\VulkanTutorial\\out\\build\\x64-debug\\vc140.pdb",
+                "CMakeFiles\\demo.dir\\src\\demo\\main.cpp.obj.ddi"
+            ],
+            "requires": []
+        }
+    ]
+}

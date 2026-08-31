@@ -1,0 +1,3 @@
+C:/VulkanProjects/Demo/VulkanTutorial/out/build/default/CMakeFiles/CMakeScratch/TryCompile-l8smsd/CMakeFiles/cmTC_d89d5.dir
+C:/VulkanProjects/Demo/VulkanTutorial/out/build/default/CMakeFiles/CMakeScratch/TryCompile-l8smsd/CMakeFiles/edit_cache.dir
+C:/VulkanProjects/Demo/VulkanTutorial/out/build/default/CMakeFiles/CMakeScratch/TryCompile-l8smsd/CMakeFiles/rebuild_cache.dir

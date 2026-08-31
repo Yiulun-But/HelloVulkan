@@ -1,0 +1,32 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "MSVC",
+	"compiler-id" : "MSVC",
+	"compiler-simulate-id" : "",
+	"config" : "Debug",
+	"cxx-modules" : {},
+	"database-info" : null,
+	"dir-cur-bld" : "C:/VulkanProjects/Demo/VulkanTutorial/out/build/x64-debug",
+	"dir-cur-src" : "C:/VulkanProjects/Demo/VulkanTutorial",
+	"dir-top-bld" : "C:/VulkanProjects/Demo/VulkanTutorial/out/build/x64-debug",
+	"dir-top-src" : "C:/VulkanProjects/Demo/VulkanTutorial",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : 
+	[
+		"C:\\VulkanProjects\\Demo\\VulkanTutorial\\src",
+		"C:\\vcpkg\\vcpkg\\installed\\x64-windows\\include",
+		"C:\\VulkanSDK\\1.4.341.1\\Include"
+	],
+	"language" : "CXX",
+	"linked-target-dirs" : [],
+	"module-dir" : "C:/VulkanProjects/Demo/VulkanTutorial/out/build/x64-debug/CMakeFiles/demo.dir",
+	"sources" : 
+	{
+		"CMakeFiles/demo.dir/src/demo/main.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/VulkanProjects/Demo/VulkanTutorial/src/demo/main.cpp"
+		}
+	}
+}

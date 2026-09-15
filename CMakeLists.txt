@@ -245,8 +245,8 @@ file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
 
 add_executable(demo ${DEMO_SOURCES})
 set_target_properties(demo PROPERTIES CXX_STANDARD 20)
-target_link_libraries(demo PRIVATE Vulkan::cppm glfw)
-target_include_directories(demo PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(demo PRIVATE Vulkan::cppm glfw glm::glm)
+target_include_directories(demo PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/src/buffers")
 
 # TinyGLTF
 target_include_directories(demo PRIVATE ${TINYGLTF_INCLUDE_DIR})

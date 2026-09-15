@@ -13,6 +13,7 @@ import vulkan.hpp;
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
 #include <stdexcept>
@@ -20,9 +21,13 @@ import vulkan.hpp;
 #include <map>
 #include <fstream>
 #include <optional>
+#include <chrono>
 
 // Parts to abstract away
-#include "VertexBuffer.hpp"
+#include "buffers/VertexBuffer.h"
+#include "buffers/IndexBuffer.h"
+#include "buffers/UniformBuffer.h"
+#include "Dst.hpp"
 
 namespace HelloVulkan {
 
@@ -66,9 +71,11 @@ namespace HelloVulkan {
 		vk::raii::Queue						graphicsQueue = nullptr;
 		vk::raii::SurfaceKHR				surface = nullptr;
 		vk::raii::SwapchainKHR				swapChain = nullptr;
+		vk::raii::DescriptorSetLayout		descriptorSetLayout = nullptr;
 		vk::raii::PipelineLayout			pipelineLayout = nullptr;
 		vk::raii::Pipeline					graphicsPipeline = nullptr;
 		vk::raii::CommandPool				commandPool = nullptr;
+		vk::raii::DescriptorPool			descriptorPool = nullptr;
 
 		std::vector<vk::raii::CommandBuffer>			commandBuffers;
 		std::vector<vk::raii::Semaphore>				presentCompleteSemaphores;
@@ -83,7 +90,10 @@ namespace HelloVulkan {
 		uint32_t queueIndex;
 
 		std::optional<VertexBuffer> vertexBuffer;
+		std::optional<IndexBuffer>	indexBuffer;
+		std::vector<UniformBuffer> uniformBuffers;
 
+		std::vector<vk::raii::DescriptorSet> descriptorSets;
 
 		std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
 
@@ -105,9 +115,14 @@ namespace HelloVulkan {
 			createLogicalDevice();
 			createSwapChain();
 			createImageViews();
+			createDescriptorSetLayout();
 			createGraphicsPipeline();
 			createCommandPool();
 			createVertexBuffer();
+			createIndexBuffer();
+			createUniformBuffers();
+			createDescriptorPool();
+			createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
 		}
@@ -144,6 +159,8 @@ namespace HelloVulkan {
 			}
 
 			device.resetFences(*inFlightFences[frameIndex]);
+
+			updateUniformBuffer(frameIndex);
 
 			recordCommandBuffer(imageIndex);
 
@@ -445,6 +462,17 @@ namespace HelloVulkan {
 			}
 		}
 
+		void createDescriptorSetLayout()
+		{
+			vk::DescriptorSetLayoutBinding uboLayoutBinding{
+				.binding = 0, .descriptorType = vk::DescriptorType::eUniformBuffer, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eVertex
+			};
+			vk::DescriptorSetLayoutCreateInfo layoutInfo{
+				.bindingCount = 1, .pBindings = &uboLayoutBinding
+			};
+			descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
+		}
+
 		void createGraphicsPipeline()
 		{
 			auto vertexShaderModule = createShaderModule(readFile("demo/shaders/triangle.vert.hlsl.spv"));
@@ -459,8 +487,8 @@ namespace HelloVulkan {
 			vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
 
 			// From vertex buffer
-			auto bindingDescription = VertexBuffer::Vertex::getBindingDescription();
-			auto attributeDescriptions = VertexBuffer::Vertex::getAttributeDescriptions();
+			auto bindingDescription = Vertex::getBindingDescription();
+			auto attributeDescriptions = Vertex::getAttributeDescriptions();
 			vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
 				.vertexBindingDescriptionCount = 1,
 				.pVertexBindingDescriptions = &bindingDescription,
@@ -482,7 +510,7 @@ namespace HelloVulkan {
 				.rasterizerDiscardEnable = vk::False,
 				.polygonMode = vk::PolygonMode::eFill,
 				.cullMode = vk::CullModeFlagBits::eBack,
-				.frontFace = vk::FrontFace::eClockwise,
+				.frontFace = vk::FrontFace::eCounterClockwise,
 				.depthBiasEnable = vk::False,
 				.lineWidth = 1.0f
 			};
@@ -507,7 +535,7 @@ namespace HelloVulkan {
 				.pAttachments = &colorBlendAttachment
 			};
 
-			vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 0, .pushConstantRangeCount = 0 };
+			vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1, .pSetLayouts = &*descriptorSetLayout, .pushConstantRangeCount = 0 };
 			pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
 
 			vk::PipelineRenderingCreateInfo pipelineRenderingCreateinfo{ .colorAttachmentCount = 1, .pColorAttachmentFormats = &swapChainSurfaceFormat.format };
@@ -542,7 +570,68 @@ namespace HelloVulkan {
 		}
 
 		void createVertexBuffer() {
-			vertexBuffer.emplace(device, physicalDevice);
+			vk::DeviceSize size = sizeof(vertices[0]) * vertices.size();
+
+			Buffer stagingBuffer(device, physicalDevice, size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+			stagingBuffer.mapData(vertices.data(), size, 0);
+
+			vertexBuffer.emplace(device, physicalDevice, size, vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+			copyBuffer(stagingBuffer, *vertexBuffer, size);
+		}
+
+		void createIndexBuffer() {
+			vk::DeviceSize size = sizeof(indices[0]) * indices.size();
+
+			Buffer stagingBuffer(device, physicalDevice, size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+			stagingBuffer.mapData(indices.data(), size, 0);
+
+			indexBuffer.emplace(device, physicalDevice, size, vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, vk::IndexType::eUint16);
+
+			copyBuffer(stagingBuffer, *indexBuffer, size);
+		}
+
+		void createUniformBuffers() {
+			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+			{
+				uniformBuffers.emplace_back(device, physicalDevice, sizeof(UniformBufferObject));
+			};
+		}
+
+		void createDescriptorPool()
+		{
+			vk::DescriptorPoolSize poolSize{ .type = vk::DescriptorType::eUniformBuffer, .descriptorCount = MAX_FRAMES_IN_FLIGHT };
+
+			vk::DescriptorPoolCreateInfo poolInfo{ .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, .maxSets = MAX_FRAMES_IN_FLIGHT, .poolSizeCount = 1, .pPoolSizes = &poolSize };
+
+			descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
+		}
+
+		void createDescriptorSets()
+		{
+			std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, *descriptorSetLayout);
+
+			vk::DescriptorSetAllocateInfo allocInfo{
+				.descriptorPool = descriptorPool,
+				.descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+				.pSetLayouts = layouts.data()
+			};
+
+			descriptorSets = device.allocateDescriptorSets(allocInfo);
+
+			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+			{
+				vk::DescriptorBufferInfo bufferInfo{ .buffer = uniformBuffers[i].getBuffer(), .offset = 0, .range = sizeof(UniformBufferObject) };
+				vk::WriteDescriptorSet descriptorWrite{
+					.dstSet = descriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &bufferInfo
+				};
+				device.updateDescriptorSets(descriptorWrite, {});
+			}
 		}
 
 		void createCommandBuffers()
@@ -570,6 +659,21 @@ namespace HelloVulkan {
 				presentCompleteSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
 				inFlightFences.emplace_back(device, vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled });
 			}
+		}
+
+		void updateUniformBuffer(uint32_t currentImage)
+		{
+			static auto startTime = std::chrono::high_resolution_clock::now();
+
+			auto currentTime = std::chrono::high_resolution_clock::now();
+			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+			UniformBufferObject ubo{};
+			ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			ubo.view = glm::lookAt(glm::vec3(2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height), 0.1f, 10.0f);
+
+			uniformBuffers[currentImage].update(&ubo, sizeof(UniformBufferObject), 0);
 		}
 
 
@@ -671,6 +775,18 @@ namespace HelloVulkan {
 			return minImageCount;
 		}
 
+		void copyBuffer(Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
+		{
+			vk::CommandBufferAllocateInfo allocInfo{ .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+			vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
+			commandCopyBuffer.begin({ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+			commandCopyBuffer.copyBuffer(srcBuffer.getBufferHandle(), dstBuffer.getBufferHandle(), vk::BufferCopy(0, 0, size));
+			commandCopyBuffer.end();
+
+			graphicsQueue.submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
+			graphicsQueue.waitIdle();
+		}
+
 		static std::vector<char> readFile(const std::string& filename)
 		{
 			std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -689,7 +805,7 @@ namespace HelloVulkan {
 			return buffer;
 		}
 
-		[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
+		vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
 		{
 			vk::ShaderModuleCreateInfo createInfo{ .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t*>(code.data()) };
 			vk::raii::ShaderModule shaderModule{ device, createInfo };
@@ -730,10 +846,12 @@ namespace HelloVulkan {
 
 			commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
 			vertexBuffer->bind(commandBuffers[frameIndex]);
+			indexBuffer->bind(commandBuffers[frameIndex]);
 
-			commandBuffers[frameIndex].setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height)));
+			commandBuffers[frameIndex].setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapChainExtent.height), static_cast<float>(swapChainExtent.width), -static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
 			commandBuffers[frameIndex].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
-			commandBuffers[frameIndex].draw(static_cast<uint32_t>(vertexBuffer->vertices.size()), 1, 0, 0);
+			commandBuffers[frameIndex].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, *descriptorSets[frameIndex], nullptr);
+			commandBuffers[frameIndex].drawIndexed(static_cast<uint16_t>(indices.size()), 1, 0, 0, 0);
 
 			commandBuffers[frameIndex].endRendering();
 
@@ -794,5 +912,17 @@ namespace HelloVulkan {
 			auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
 			app->framebufferResized = true;
 		}
+
+		const std::vector<Vertex> vertices{
+			{ {  0.5f,  0.5f,  0.0f,  1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+			{ { -0.5f,  0.5f,  0.0f,  1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f } },
+			{ { -0.5f, -0.5f,  0.0f,  1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+			{ {  0.5f, -0.5f,  0.0f,  1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } }
+		};
+
+		const std::vector<uint16_t> indices{
+			0, 1, 2, 2, 3, 0
+		};
+
 	};
 }

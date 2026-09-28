@@ -241,12 +241,13 @@ endfunction()
 file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/demo/*.cpp"
   "${CMAKE_SOURCE_DIR}/src/demo/*.hpp"
+  "${CMAKE_SOURCE_DIR}/src/demo/*.h"
 )
 
-add_executable(demo ${DEMO_SOURCES})
+add_executable(demo ${DEMO_SOURCES}  "src/demo/renderer/texture/ImageData.h" "src/demo/renderer/texture/ImageData.cpp")
 set_target_properties(demo PROPERTIES CXX_STANDARD 20)
 target_link_libraries(demo PRIVATE Vulkan::cppm glfw glm::glm)
-target_include_directories(demo PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/src/buffers")
+target_include_directories(demo PRIVATE "${CMAKE_SOURCE_DIR}/src/demo")
 
 # TinyGLTF
 target_include_directories(demo PRIVATE ${TINYGLTF_INCLUDE_DIR})

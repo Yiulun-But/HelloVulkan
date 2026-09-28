@@ -118,6 +118,7 @@ namespace HelloVulkan {
 			createDescriptorSetLayout();
 			createGraphicsPipeline();
 			createCommandPool();
+			createTextureImage();
 			createVertexBuffer();
 			createIndexBuffer();
 			createUniformBuffers();
@@ -567,6 +568,11 @@ namespace HelloVulkan {
 			};
 
 			commandPool = vk::raii::CommandPool(device, poolInfo);
+		}
+
+		void createTextureImage()
+		{
+
 		}
 
 		void createVertexBuffer() {

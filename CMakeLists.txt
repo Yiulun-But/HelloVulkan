@@ -244,7 +244,7 @@ file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/demo/*.h"
 )
 
-add_executable(demo ${DEMO_SOURCES}  "src/demo/renderer/texture/ImageData.h" "src/demo/renderer/texture/ImageData.cpp")
+add_executable(demo ${DEMO_SOURCES} )
 set_target_properties(demo PROPERTIES CXX_STANDARD 20)
 target_link_libraries(demo PRIVATE Vulkan::cppm glfw glm::glm)
 target_include_directories(demo PRIVATE "${CMAKE_SOURCE_DIR}/src/demo")

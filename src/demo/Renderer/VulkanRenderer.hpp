@@ -8,7 +8,7 @@
 #if defined(__INTELLISENSE__) || !defined(USE_CPP20_MODULES)
 #include <vulkan/vulkan_raii.hpp>
 #else
-import vulkan.hpp;
+import vulkan_hpp;
 #endif
 
 #define GLFW_INCLUDE_VULKAN
@@ -22,12 +22,17 @@ import vulkan.hpp;
 #include <fstream>
 #include <optional>
 #include <chrono>
+#include <algorithm>
 
 // Parts to abstract away
+#include "context/VulkanEngine.h"
 #include "buffers/VertexBuffer.h"
 #include "buffers/IndexBuffer.h"
 #include "buffers/UniformBuffer.h"
-#include "Dst.hpp"
+#include "Layout.hpp"
+#include "renderer/texture/ImageData.h"
+#include "renderer/texture/ImageTypes.h"
+#include "renderer/texture/TextureImage.h"
 
 namespace HelloVulkan {
 
@@ -63,9 +68,8 @@ namespace HelloVulkan {
 
 		GLFWwindow* window = nullptr;
 
-		vk::raii::Context					context;
-		vk::raii::Instance					instance = nullptr;
-		vk::raii::DebugUtilsMessengerEXT	debugMessenger = nullptr;
+		std::optional<VulkanEngine> vulkanEngine;
+
 		vk::raii::PhysicalDevice			physicalDevice = nullptr;
 		vk::raii::Device					device = nullptr;
 		vk::raii::Queue						graphicsQueue = nullptr;
@@ -76,6 +80,7 @@ namespace HelloVulkan {
 		vk::raii::Pipeline					graphicsPipeline = nullptr;
 		vk::raii::CommandPool				commandPool = nullptr;
 		vk::raii::DescriptorPool			descriptorPool = nullptr;
+
 
 		std::vector<vk::raii::CommandBuffer>			commandBuffers;
 		std::vector<vk::raii::Semaphore>				presentCompleteSemaphores;
@@ -93,6 +98,8 @@ namespace HelloVulkan {
 		std::optional<IndexBuffer>	indexBuffer;
 		std::vector<UniformBuffer> uniformBuffers;
 
+		std::optional<TextureImage> textureImage;
+
 		std::vector<vk::raii::DescriptorSet> descriptorSets;
 
 		std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
@@ -109,7 +116,6 @@ namespace HelloVulkan {
 
 		void initVulkan() {
 			createInstance();
-			setupDebugMessenger();
 			createSurface();
 			pickPhysicalDevice();
 			createLogicalDevice();
@@ -213,94 +219,23 @@ namespace HelloVulkan {
 
 		void createInstance()
 		{
-
-			constexpr vk::ApplicationInfo appInfo{
-				.pApplicationName = "Hello Triangle",
-				.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-				.pEngineName = "No Engine",
-				.engineVersion = VK_MAKE_VERSION(1, 0, 0),
-				.apiVersion = vk::ApiVersion14
-			};
-
-			// Get the required layers
-			std::vector<char const*> requiredLayers;
-			if (enableValidationLayers)
-			{
-				requiredLayers.assign(validationLayers.begin(), validationLayers.end());
-			}
-
-			// Check layers supported
-			auto layerProperties = context.enumerateInstanceLayerProperties();
-			auto unsupportedLayerIt =
-				std::ranges::find_if(requiredLayers,
-					[&layerProperties](auto const& requiredLayer) {
-						return std::ranges::none_of(layerProperties,
-							[requiredLayer](auto const& layerProperty) {
-								return strcmp(layerProperty.layerName, requiredLayer) == 0;
-							});
-					});
-			if (unsupportedLayerIt != requiredLayers.end())
-			{
-				throw std::runtime_error("Required layer not supported: " + std::string(*unsupportedLayerIt));
-			}
-
-			auto requiredExtensions = getRequiredInstanceExtensions();
-
-			auto extensionProperties = context.enumerateInstanceExtensionProperties();
-			auto unsupportedPropertyIt =
-				std::ranges::find_if(requiredExtensions,
-					[&extensionProperties](auto const& requiredExtension) {
-						return std::ranges::none_of(extensionProperties,
-							[requiredExtension](auto const& extensionProperty) {
-								return strcmp(extensionProperty.extensionName, requiredExtension) == 0;
-							});
-					});
-			if (unsupportedPropertyIt != requiredExtensions.end())
-			{
-				throw std::runtime_error("Required extension not supported: " + std::string(*unsupportedPropertyIt));
-			}
-
-			vk::InstanceCreateInfo createInfo{
-				.pApplicationInfo = &appInfo,
-				.enabledLayerCount = static_cast<uint32_t>(requiredLayers.size()),
-				.ppEnabledLayerNames = requiredLayers.data(),
-				.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
-				.ppEnabledExtensionNames = requiredExtensions.data()
-			};
-
-			instance = vk::raii::Instance(context, createInfo);
+			auto requiredInstanceExtensions = getRequiredInstanceExtensions();
+			vulkanEngine.emplace(validationLayers, requiredInstanceExtensions);
 		}
 
-		void setupDebugMessenger()
-		{
-			if (!enableValidationLayers) return;
-
-			vk::DebugUtilsMessageSeverityFlagsEXT	severityFlags(
-				vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-				vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
-			vk::DebugUtilsMessageTypeFlagsEXT		messageTypeFlags(
-				vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
-			vk::DebugUtilsMessengerCreateInfoEXT	debugUtilsMessengerCreateInfoEXT{
-				.messageSeverity = severityFlags,
-				.messageType = messageTypeFlags,
-				.pfnUserCallback = &debugCallback };
-
-			debugMessenger = instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
-
-		}
 
 		void createSurface()
 		{
 			VkSurfaceKHR	_surface;
-			if (glfwCreateWindowSurface(*instance, window, nullptr, &_surface) != 0) {
+			if (glfwCreateWindowSurface(*(vulkanEngine.value().getInstance()), window, nullptr, &_surface) != 0) {
 				throw std::runtime_error("failed to create window surface!");
 			}
-			surface = vk::raii::SurfaceKHR(instance, _surface);
+			surface = vk::raii::SurfaceKHR(vulkanEngine.value().getInstance(), _surface);
 		}
 
 		void pickPhysicalDevice()
 		{
-			auto physicalDevices = vk::raii::PhysicalDevices(instance);
+			auto physicalDevices = vk::raii::PhysicalDevices(vulkanEngine.value().getInstance());
 			if (physicalDevices.empty())
 			{
 				throw std::runtime_error("failed to find GPUs with Vulkan support!");
@@ -572,7 +507,29 @@ namespace HelloVulkan {
 
 		void createTextureImage()
 		{
+			ImageData imageData("sprite.jpg");
 
+			ImageCreateContext imageContext{
+				.width = static_cast<uint32_t>(imageData.getWidth()),
+				.height = static_cast<uint32_t>(imageData.getHeight()),
+				.format = vk::Format::eR8G8B8A8Srgb,
+				.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+				.memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+				.tiling = vk::ImageTiling::eOptimal
+			};
+
+			Buffer stagingBuffer(
+				device,
+				physicalDevice,
+				imageData.size(),
+				vk::BufferUsageFlagBits::eTransferSrc,
+				vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+			stagingBuffer.mapData(imageData.data(), imageData.size(), 0);
+
+			vk::raii::CommandBuffer commandBuffer = beginSingleTimeCommands();
+			textureImage.emplace(device, physicalDevice, commandBuffer, imageContext, stagingBuffer);
+			endSingleTimeCommands(std::move(commandBuffer));
 		}
 
 		void createVertexBuffer() {
@@ -697,6 +654,30 @@ namespace HelloVulkan {
 			return extensions;
 		}
 
+		vk::raii::CommandBuffer beginSingleTimeCommands()
+		{
+			vk::CommandBufferAllocateInfo allocInfo{ 
+				.commandPool = commandPool,
+				.level = vk::CommandBufferLevel::ePrimary,
+				.commandBufferCount = 1 
+			};
+			vk::raii::CommandBuffer commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+
+			vk::CommandBufferBeginInfo beginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+			commandBuffer.begin(beginInfo);
+
+			return std::move(commandBuffer);
+
+		}
+
+		void endSingleTimeCommands(vk::raii::CommandBuffer&& commandBuffer)
+		{
+			commandBuffer.end();
+
+			vk::SubmitInfo submitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandBuffer };
+			graphicsQueue.submit(submitInfo);
+			graphicsQueue.waitIdle();
+		}
 
 
 		static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
@@ -783,14 +764,9 @@ namespace HelloVulkan {
 
 		void copyBuffer(Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 		{
-			vk::CommandBufferAllocateInfo allocInfo{ .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
-			vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
-			commandCopyBuffer.begin({ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+			vk::raii::CommandBuffer commandCopyBuffer = beginSingleTimeCommands();
 			commandCopyBuffer.copyBuffer(srcBuffer.getBufferHandle(), dstBuffer.getBufferHandle(), vk::BufferCopy(0, 0, size));
-			commandCopyBuffer.end();
-
-			graphicsQueue.submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
-			graphicsQueue.waitIdle();
+			endSingleTimeCommands(std::move(commandCopyBuffer));
 		}
 
 		static std::vector<char> readFile(const std::string& filename)

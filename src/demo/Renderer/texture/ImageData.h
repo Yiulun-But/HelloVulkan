@@ -13,6 +13,13 @@ namespace HelloVulkan {
 			const char* filename
 		);
 
+		inline std::size_t size() const { return imageSize; }
+		inline stbi_uc* data() const { return pixels.get(); }
+
+		inline const int getWidth() const { return texWidth; }
+		inline const int getHeight() const { return texHeight; }
+		inline const int getChannels() const { return texChannels; }
+
 	private:
 		int texWidth;
 		int texHeight;
@@ -24,7 +31,7 @@ namespace HelloVulkan {
 			}
 		};
 		std::unique_ptr<stbi_uc, StbiDeleter> pixels = nullptr;
-		std::size_t imageSize;
+		std::size_t imageSize = 0;
 	};
 
 }

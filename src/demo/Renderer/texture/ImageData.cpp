@@ -9,12 +9,12 @@ namespace HelloVulkan {
 	ImageData::ImageData(
 		const char* filename
 	) {
+		pixels.reset(stbi_load(filename, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha));
+
 		imageSize =
 			static_cast<std::size_t>(texWidth) *
 			static_cast<std::size_t>(texHeight) *
 			4;
-
-		pixels.reset(stbi_load(filename, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha));
 
 		if (!pixels)
 		{

@@ -11,8 +11,8 @@
 import vulkan_hpp;
 #endif
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
@@ -26,6 +26,7 @@ import vulkan_hpp;
 
 // Parts to abstract away
 #include "context/VulkanEngine.h"
+#include "window/Window.h"
 #include "buffers/VertexBuffer.h"
 #include "buffers/IndexBuffer.h"
 #include "buffers/UniformBuffer.h"
@@ -45,11 +46,6 @@ namespace HelloVulkan {
 		"VK_LAYER_KHRONOS_validation"
 	};
 
-#ifdef NDEBUG
-	constexpr bool enableValidationLayers = false;
-#else
-	constexpr bool enableValidationLayers = true;
-#endif
 
 	class HelloTriangleApplication {
 
@@ -66,8 +62,9 @@ namespace HelloVulkan {
 
 	private:
 
-		GLFWwindow* window = nullptr;
+		// GLFWwindow* window = nullptr;
 
+		std::optional<Window> window;
 		std::optional<VulkanEngine> vulkanEngine;
 
 		vk::raii::PhysicalDevice			physicalDevice = nullptr;
@@ -106,12 +103,11 @@ namespace HelloVulkan {
 
 
 		void initWindow() {
-			glfwInit();
-			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-			glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-			window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-			glfwSetWindowUserPointer(window, this);
-			glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+			if (!SDL_Init(SDL_INIT_VIDEO))
+			{
+				throw std::runtime_error(SDL_GetError());
+			}
+			window.emplace( WindowProps{ "Hello Vulkan", 800, 600 } );
 		}
 
 		void initVulkan() {
@@ -135,8 +131,8 @@ namespace HelloVulkan {
 		}
 
 		void mainLoop() {
-			while (!glfwWindowShouldClose(window)) {
-				glfwPollEvents();
+			while (!window.value().ShouldClose()) {
+				window.value().PollEvents();
 				drawFrame();
 			}
 
@@ -211,15 +207,13 @@ namespace HelloVulkan {
 
 		void cleanup() {
 			cleanupSwapChain();
-
-			glfwDestroyWindow(window);
-
-			glfwTerminate();
+			SDL_Quit();
 		}
 
 		void createInstance()
 		{
-			auto requiredInstanceExtensions = getRequiredInstanceExtensions();
+			auto requiredInstanceExtensions = window.value().GetRequiredInstanceExtensions();
+
 			vulkanEngine.emplace(validationLayers, requiredInstanceExtensions);
 		}
 
@@ -227,7 +221,7 @@ namespace HelloVulkan {
 		void createSurface()
 		{
 			VkSurfaceKHR	_surface;
-			if (glfwCreateWindowSurface(*(vulkanEngine.value().getInstance()), window, nullptr, &_surface) != 0) {
+			if (!SDL_Vulkan_CreateSurface(window.value().GetNativeWindow(), *(vulkanEngine.value().getInstance()), nullptr, &_surface)) {
 				throw std::runtime_error("failed to create window surface!");
 			}
 			surface = vk::raii::SurfaceKHR(vulkanEngine.value().getInstance(), _surface);
@@ -326,11 +320,20 @@ namespace HelloVulkan {
 
 		void recreateSwapChain()
 		{
-			int height = 0, width = 0;
-			glfwGetFramebufferSize(window, &width, &height);
-			while (width == 0 || height == 0) {
-				glfwGetFramebufferSize(window, &width, &height);
-				glfwWaitEvents();
+			auto drawableReady = [&]()
+				{
+					auto [width, height] = window.value().GetPixelSize();
+
+					return width > 0 &&
+						height > 0 &&
+						!(SDL_GetWindowFlags(window.value().GetNativeWindow())
+							& SDL_WINDOW_MINIMIZED);
+				};
+
+			while (!drawableReady())
+			{
+				if (!window.value().WaitEvent())
+					return;
 			}
 
 			device.waitIdle();
@@ -640,20 +643,6 @@ namespace HelloVulkan {
 		}
 
 
-		std::vector<const char*> getRequiredInstanceExtensions()
-		{
-			uint32_t glfwExtensionCount = 0;
-			auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-			std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-			if (enableValidationLayers)
-			{
-				extensions.push_back(vk::EXTDebugUtilsExtensionName);
-			}
-
-			return extensions;
-		}
-
 		vk::raii::CommandBuffer beginSingleTimeCommands()
 		{
 			vk::CommandBufferAllocateInfo allocInfo{ 
@@ -743,8 +732,8 @@ namespace HelloVulkan {
 			{
 				return capabilities.currentExtent;
 			}
-			int width, height;
-			glfwGetFramebufferSize(window, &width, &height);
+			
+			auto [width, height] = window.value().GetPixelSize();
 
 			return {
 				std::clamp<uint32_t>(width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
@@ -887,12 +876,6 @@ namespace HelloVulkan {
 			};
 
 			commandBuffers[frameIndex].pipelineBarrier2(dependency_info);
-		}
-
-		static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
-		{
-			auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
-			app->framebufferResized = true;
 		}
 
 		const std::vector<Vertex> vertices{

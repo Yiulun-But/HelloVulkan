@@ -14,7 +14,7 @@ endif()
 
 set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
 
-project ("VulkanTutorial")
+project ("VulkanTutorial" LANGUAGES C CXX)
 
 # Add option to enable/disable C++ 20 module
 option(ENABLE_CPP20_MODULE "Enable C++ 20 module support for Vulkan" OFF)
@@ -25,13 +25,15 @@ if(ENABLE_CPP20_MODULE)
 endif()
 
 # Include sub-projects.
-
-find_package (glfw3 REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
 find_package (glm REQUIRED)
 find_package (Vulkan 1.4.335 REQUIRED)      # Require Vulkan SDK version 1.4.335 or higher
 find_package (tinyobjloader REQUIRED)
 
-find_path(TINYGLTF_INCLUDE_DIR tiny_gltf_v3.h REQUIRED)
+find_path(TINYGLTF_INCLUDE_DIR
+    NAMES tiny_gltf.h tiny_gltf_v3.h
+    REQUIRED
+)
 
 find_package (KTX REQUIRED)
 
@@ -244,9 +246,10 @@ file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/demo/*.h"
 )
 
-add_executable(demo ${DEMO_SOURCES} )
+add_executable(demo ${DEMO_SOURCES}  "src/demo/renderer/window/Window.cpp")
 set_target_properties(demo PROPERTIES CXX_STANDARD 20)
-target_link_libraries(demo PRIVATE Vulkan::cppm glfw glm::glm)
+target_link_libraries(demo PRIVATE Vulkan::cppm glm::glm SDL3::SDL3)
+
 target_include_directories(demo PRIVATE "${CMAKE_SOURCE_DIR}/src/demo")
 
 # TinyGLTF

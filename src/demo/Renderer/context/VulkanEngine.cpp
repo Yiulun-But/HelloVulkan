@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <iostream>
 
+#define VK_EXT_debug_utils
+
 namespace HelloVulkan {
 
 	static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
@@ -20,16 +22,19 @@ namespace HelloVulkan {
 
 	VulkanEngine::VulkanEngine(
 		const std::vector<char const*>& validationLayers,
-		const std::vector<const char*>& requiredInstanceExtension
+		std::vector<const char*>& requiredInstanceExtension
 	)
 	{
 		createInstance(validationLayers, requiredInstanceExtension);
 		setupDebugMessenger();
+		// createSurface();
+		// pickPhysicalDevice();
+		// createLogicalDevice();
 	}
 
 	void VulkanEngine::createInstance(
 		const std::vector<char const*>& validationLayers,
-		const std::vector<const char*>& requiredInstanceExtension
+		std::vector<const char*>& requiredInstanceExtension
 	)
 	{
 
@@ -61,6 +66,13 @@ namespace HelloVulkan {
 		if (unsupportedLayerIt != requiredLayers.end())
 		{
 			throw std::runtime_error("Required layer not supported: " + std::string(*unsupportedLayerIt));
+		}
+
+		if (enableValidationLayers)
+		{
+			requiredInstanceExtension.push_back(
+				vk::EXTDebugUtilsExtensionName
+			);
 		}
 
 		auto extensionProperties = context.enumerateInstanceExtensionProperties();
@@ -105,5 +117,6 @@ namespace HelloVulkan {
 		debugMessenger = instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
 
 	}
+
 
 }

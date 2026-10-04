@@ -11,7 +11,7 @@ namespace HelloVulkan {
 	public:
 		VulkanEngine(
 			const std::vector<char const*>& validationLayers,
-			const std::vector<const char*>& requiredInstanceExtension
+			std::vector<const char*>& requiredInstanceExtension
 		);
 
 		inline vk::raii::Context& getContext() { return context; }
@@ -21,10 +21,13 @@ namespace HelloVulkan {
 
 		void createInstance(
 			const std::vector<char const*>& validationLayers,
-			const std::vector<const char*>& requiredInstanceExtension
+			std::vector<const char*>& requiredInstanceExtension
 		);
 
 		void setupDebugMessenger();
+		//void createSurface();
+		//void pickPhysicalDevice();
+		//void createLogicalDevice();
 
 		vk::raii::Context context;
 		vk::raii::Instance instance = nullptr;

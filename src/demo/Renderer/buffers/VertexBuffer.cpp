@@ -3,12 +3,11 @@
 namespace HelloVulkan{
 
 	VertexBuffer::VertexBuffer(
-		const vk::raii::Device& device,
-		const vk::raii::PhysicalDevice& physicalDevice,
+		VulkanEngine& engine,
 		vk::DeviceSize size,
 		vk::BufferUsageFlags usage,
 		vk::MemoryPropertyFlags properties
-	) : Buffer(device, physicalDevice, size, vk::BufferUsageFlagBits::eVertexBuffer | usage, properties)
+	) : Buffer(engine, size, vk::BufferUsageFlagBits::eVertexBuffer | usage, properties)
 	{
 
 	}

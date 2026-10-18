@@ -35,8 +35,6 @@ namespace HelloVulkan {
         std::vector<const char*>
             GetRequiredInstanceExtensions() const;
 
-        VkSurfaceKHR CreateSurface(VkInstance instance) const;
-
         void PollEvents();
         bool WaitEvent();
 

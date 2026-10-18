@@ -9,8 +9,7 @@ namespace HelloVulkan {
 	public:
 
 		VertexBuffer(
-			const vk::raii::Device& device,
-			const vk::raii::PhysicalDevice& physicalDevice,
+			VulkanEngine& engine,
 			vk::DeviceSize size,
 			vk::BufferUsageFlags usage,
 			vk::MemoryPropertyFlags properties

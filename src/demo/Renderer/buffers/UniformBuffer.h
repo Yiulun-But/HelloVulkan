@@ -6,8 +6,7 @@ namespace HelloVulkan {
 	class UniformBuffer : public Buffer {
 	public:
 		UniformBuffer(
-			const vk::raii::Device& device,
-			const vk::raii::PhysicalDevice& physicalDevice,
+			VulkanEngine& engine,
 			vk::DeviceSize size
 		);
 

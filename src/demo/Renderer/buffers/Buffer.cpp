@@ -22,15 +22,14 @@ namespace HelloVulkan {
 	}
 
 	Buffer::Buffer(
-		const vk::raii::Device& device,
-		const vk::raii::PhysicalDevice& physicalDevice,
+		VulkanEngine& vulkanEngine,
 		vk::DeviceSize size,
 		vk::BufferUsageFlags usage,
 		vk::MemoryPropertyFlags properties
 	) : size(size), usage(usage), properties(properties)
 	{
-		createBuffer(device);
-		allocateBufferMemory(device, physicalDevice);
+		createBuffer(vulkanEngine.getDevice());
+		allocateBufferMemory(vulkanEngine.getDevice(), vulkanEngine.getPhysicalDevice());
 	}
 
 	void Buffer::mapData(const void* data, vk::DeviceSize size, vk::DeviceSize offset) {

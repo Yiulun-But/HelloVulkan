@@ -2,11 +2,10 @@
 
 namespace HelloVulkan {
 	UniformBuffer::UniformBuffer(
-		const vk::raii::Device& device,
-		const vk::raii::PhysicalDevice& physicalDevice,
+		VulkanEngine& engine,
 		vk::DeviceSize size
 
-	) : Buffer(device, physicalDevice, size, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)
+	) : Buffer(engine, size, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)
 	{
 		mappedMem = getMemory().mapMemory(0, size);
 	}

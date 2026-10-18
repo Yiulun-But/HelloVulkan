@@ -1,16 +1,10 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
-#if defined(__INTELLISENSE__) || !defined(USE_CPP20_MODULES)
-#include <vulkan/vulkan_raii.hpp>
-#else
-import vulkan_hpp;
-#endif
-
 #include <vector>
 #include <cstddef>
 #include <utility>
 
+#include "renderer/context/VulkanEngine.h"
 
 namespace HelloVulkan {
 
@@ -19,8 +13,7 @@ namespace HelloVulkan {
 	public:
 
 		Buffer(
-			const vk::raii::Device& device,
-			const vk::raii::PhysicalDevice& physicalDevice,
+			VulkanEngine& vulkanEngine,
 			vk::DeviceSize size,
 			vk::BufferUsageFlags usage,
 			vk::MemoryPropertyFlags properties

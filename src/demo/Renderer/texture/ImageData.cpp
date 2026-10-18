@@ -2,6 +2,7 @@
 #include "ImageData.h"
 
 #include <stdexcept>
+#include <iostream>
 
 namespace HelloVulkan {
 
@@ -16,9 +17,11 @@ namespace HelloVulkan {
 			static_cast<std::size_t>(texHeight) *
 			4;
 
+		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+
 		if (!pixels)
 		{
-			throw std::runtime_error("Failed to load image!");
+			throw std::runtime_error("Failed to load image: " + std::string(filename));
 		}
 	}
 

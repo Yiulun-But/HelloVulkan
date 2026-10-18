@@ -246,7 +246,7 @@ file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/demo/*.h"
 )
 
-add_executable(demo ${DEMO_SOURCES}  "src/demo/renderer/window/Window.cpp")
+add_executable(demo ${DEMO_SOURCES} "src/demo/renderer/context/FrameData.h"  "src/demo/renderer/context/DescriptorSet.h" "src/demo/renderer/context/DescriptorSet.cpp" "src/demo/renderer/context/DescriptorSetLayout.h" "src/demo/renderer/context/DescriptorSetLayout.cpp" "src/demo/renderer/Core.h" "src/demo/renderer/context/DescriptorPool.h" "src/demo/renderer/context/DescriptorPool.cpp" "src/demo/renderer/texture/DepthImage.h" "src/demo/renderer/texture/DepthImage.cpp")
 set_target_properties(demo PROPERTIES CXX_STANDARD 20)
 target_link_libraries(demo PRIVATE Vulkan::cppm glm::glm SDL3::SDL3)
 
@@ -267,6 +267,26 @@ add_vkproject_assets(
 
   TEXTURES
 
+)
+
+set(ASSET_DIR "${CMAKE_SOURCE_DIR}/assets")
+
+add_custom_command(
+    TARGET demo POST_BUILD
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASSET_DIR}/sprites"
+        "$<TARGET_FILE_DIR:demo>/sprites"
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASSET_DIR}/models"
+        "$<TARGET_FILE_DIR:demo>/models"
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASSET_DIR}/textures"
+        "$<TARGET_FILE_DIR:demo>/textures"
+
+    COMMENT "Copying assets to output directory"
 )
 
 # Add compile definition if C++ 20 module is enabled

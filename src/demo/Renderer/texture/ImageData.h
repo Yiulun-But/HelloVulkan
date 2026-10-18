@@ -18,12 +18,14 @@ namespace HelloVulkan {
 
 		inline const int getWidth() const { return texWidth; }
 		inline const int getHeight() const { return texHeight; }
+		inline const uint32_t getMipLevels() const { return mipLevels; }
 		inline const int getChannels() const { return texChannels; }
 
 	private:
 		int texWidth;
 		int texHeight;
 		int texChannels;
+		uint32_t mipLevels;
 		
 		struct StbiDeleter {
 			void operator()(stbi_uc* ptr) const noexcept {

@@ -21,5 +21,6 @@ CMakeUserPresets.json
 
 .vs/
 out/
+assets/
 *.vcxproj*
 *.slnx
